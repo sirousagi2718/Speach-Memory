@@ -635,13 +635,25 @@ function normalize(text) {
     .toLowerCase();
 }
 
+// 行を単語（2文字以上のかたまり）に分割
+function extractWords(normalizedText) {
+  const words = [];
+  // 2文字以上のサブストリングを単語として抽出（連続した部分）
+  for (let len = 2; len <= Math.min(normalizedText.length, 8); len++) {
+    for (let start = 0; start <= normalizedText.length - len; start++) {
+      words.push(normalizedText.slice(start, start + len));
+    }
+  }
+  return words;
+}
+
 // 話したテキストと原稿行を照合して進める
 function matchTranscriptToScript(transcript) {
   if (currentLineIdx >= nonEmptyLineIndices.length) return;
 
   const normalizedTranscript = normalize(transcript);
 
-  // 現在行から数行先まで照合を試みる（スキップ対応）
+  // 現在行から数行先まで照合（スキップ対応）
   for (let offset = 0; offset <= 2; offset++) {
     const idx = currentLineIdx + offset;
     if (idx >= nonEmptyLineIndices.length) break;
@@ -649,46 +661,58 @@ function matchTranscriptToScript(transcript) {
     const lineIdx = nonEmptyLineIndices[idx];
     const line = scriptLines[lineIdx];
     const normalizedLine = normalize(line);
-
     if (normalizedLine.length === 0) continue;
 
-    // 原稿行の70%以上が話したテキストに含まれていれば「読んだ」と判定
-    const threshold = Math.floor(normalizedLine.length * 0.7);
-    let matchCount = 0;
-
-    // 部分一致スコアを計算（原稿の各文字がtranscriptにあるか）
-    // より実用的に：原稿行全体がtranscriptの末尾付近に含まれているか
+    // ① 行全体が含まれる場合はdone確定
     if (normalizedTranscript.includes(normalizedLine)) {
-      matchCount = normalizedLine.length;
-    } else {
-      // 部分一致：原稿行のどれだけの割合がtranscriptにあるか
-      // 最長共通部分文字列の簡易版
-      for (let len = Math.min(normalizedLine.length, 4); len <= normalizedLine.length; len++) {
-        for (let start = 0; start <= normalizedLine.length - len; start++) {
-          const sub = normalizedLine.slice(start, start + len);
-          if (normalizedTranscript.includes(sub)) {
-            matchCount = Math.max(matchCount, len);
-          }
-        }
-      }
+      commitLines(offset, transcript);
+      return;
     }
 
-    if (matchCount >= threshold) {
-      // offsetの間の行もdoneにする
-      for (let k = 0; k <= offset; k++) {
-        const doneIdx = nonEmptyLineIndices[currentLineIdx + k];
-        markLineDone(doneIdx);
-      }
-      currentLineIdx = idx + 1;
-      updateProgress();
-      highlightCurrentLine();
+    // ② 原稿行の単語（2文字以上）が1つでもtranscriptに含まれていれば表示
+    const words = extractWords(normalizedLine);
+    const hasWordMatch = words.some(w => normalizedTranscript.includes(w));
 
-      // さらに次の行とも照合（連続して読んだ場合）
-      if (currentLineIdx < nonEmptyLineIndices.length) {
-        matchTranscriptToScript(transcript);
+    if (hasWordMatch) {
+      // 行を「表示済み（revealed）」にする（まだdoneではない）
+      revealLine(lineIdx);
+
+      // 行の70%以上マッチしていればdone
+      let maxMatch = 0;
+      for (const w of words) {
+        if (normalizedTranscript.includes(w)) maxMatch = Math.max(maxMatch, w.length);
+      }
+      const threshold = Math.floor(normalizedLine.length * 0.6);
+      if (maxMatch >= threshold || normalizedLine.length <= 4) {
+        commitLines(offset, transcript);
       }
       return;
     }
+  }
+}
+
+// 行の本文を表示するが、まだdoneにはしない
+function revealLine(lineIdx) {
+  const el = document.getElementById(`line-${lineIdx}`);
+  if (!el || el.classList.contains('done')) return;
+  el.classList.remove('hidden-line');
+  el.classList.add('current');
+  el.textContent = el.dataset.text || el.textContent;
+}
+
+// offsetまでの行をすべてdoneにして次へ進む
+function commitLines(offset, transcript) {
+  for (let k = 0; k <= offset; k++) {
+    const doneIdx = nonEmptyLineIndices[currentLineIdx + k];
+    markLineDone(doneIdx);
+  }
+  currentLineIdx += offset + 1;
+  updateProgress();
+  highlightCurrentLine();
+
+  // 連続マッチの確認
+  if (currentLineIdx < nonEmptyLineIndices.length) {
+    matchTranscriptToScript(transcript);
   }
 }
 
