@@ -182,10 +182,9 @@
     min-height: 1.8em;
   }
 
-  .speech-line.hidden-line {
+  .speech-line .ch {
+    transition: color 0.2s;
     color: var(--muted);
-    letter-spacing: 0.1em;
-    user-select: none;
   }
 
   .speech-line.done {
@@ -568,12 +567,10 @@ function exitPractice() {
 
 // ─── 原稿ハイライト ───
 function highlightCurrentLine() {
-  // 前のcurrent行を*****に戻す
   document.querySelectorAll('.speech-line.current').forEach(el => {
     if (!el.classList.contains('done')) {
       el.classList.remove('current');
       el.classList.add('hidden-line');
-      el.textContent = '*'.repeat(Math.min((el.dataset.text || '').length, 12));
     }
   });
 
@@ -581,11 +578,9 @@ function highlightCurrentLine() {
   const lineIdx = nonEmptyLineIndices[currentLineIdx];
   const el = document.getElementById(`line-${lineIdx}`);
   if (el) {
-    // current行も*****のまま、スクロールだけする
     el.classList.remove('hidden-line');
     el.classList.add('current');
-    // テキストは表示しない（*****のまま）
-    el.textContent = '*'.repeat(Math.min((el.dataset.text || '').length, 12));
+    // *のままスクロールだけ
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
@@ -593,11 +588,17 @@ function highlightCurrentLine() {
 function markLineDone(lineIdx) {
   doneLines.add(lineIdx);
   const el = document.getElementById(`line-${lineIdx}`);
-  if (el) {
-    el.classList.remove('current', 'hidden-line');
-    el.classList.add('done');
-    el.textContent = el.dataset.text || el.textContent;
-  }
+  if (!el) return;
+  buildLineSpans(lineIdx);
+  // 全文字を表示して緑に
+  el.querySelectorAll('.ch').forEach(span => {
+    if (span.textContent === '*') {
+      span.textContent = span.dataset.char === ' ' ? '\u00A0' : span.dataset.char;
+    }
+    span.style.color = '#155724';
+  });
+  el.classList.remove('current', 'hidden-line');
+  el.classList.add('done');
 }
 
 function resetHighlights() {
@@ -605,10 +606,14 @@ function resetHighlights() {
     const el = document.getElementById(`line-${i}`);
     if (!el) return;
     el.classList.remove('done', 'current', 'hidden-line');
+    el.dataset.built = '';
+    el.dataset.revealed = '0';
     const isEmpty = line.trim().length === 0;
-    if (!isEmpty) {
+    if (isEmpty) {
+      el.innerHTML = '&nbsp;';
+    } else {
       el.classList.add('hidden-line');
-      el.textContent = '*'.repeat(Math.min(line.length, 12));
+      el.innerHTML = '*'.repeat(Math.min(line.length, 12));
     }
   });
   currentLineIdx = 0;
@@ -635,16 +640,55 @@ function normalize(text) {
     .toLowerCase();
 }
 
-// 行を単語（2文字以上のかたまり）に分割
-function extractWords(normalizedText) {
-  const words = [];
-  // 2文字以上のサブストリングを単語として抽出（連続した部分）
-  for (let len = 2; len <= Math.min(normalizedText.length, 8); len++) {
-    for (let start = 0; start <= normalizedText.length - len; start++) {
-      words.push(normalizedText.slice(start, start + len));
+// 原稿行をspan文字単位で構築（初期は*で隠す）
+function buildLineSpans(lineIdx) {
+  const el = document.getElementById(`line-${lineIdx}`);
+  if (!el || el.dataset.built) return;
+  const text = el.dataset.text || '';
+  el.innerHTML = text.split('').map((ch, i) =>
+    `<span class="ch" id="ch-${lineIdx}-${i}" data-char="${ch}">${ch === ' ' ? '&nbsp;' : '*'}</span>`
+  ).join('');
+  el.dataset.built = '1';
+  el.dataset.revealed = '0'; // 何文字目まで表示済みか（正規化後）
+}
+
+// 正規化テキスト上のインデックス→元テキストのインデックスのマッピングを返す
+function buildNormMap(text) {
+  const normToOrig = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (!/[\s　。、．，！？!?「」『』【】〔〕（）()・…‥〜～]/.test(ch)) {
+      normToOrig.push(i);
     }
   }
-  return words;
+  return normToOrig;
+}
+
+// 指定行をn文字目（正規化後）まで表示する
+function revealChars(lineIdx, normCount) {
+  const el = document.getElementById(`line-${lineIdx}`);
+  if (!el) return;
+  buildLineSpans(lineIdx);
+
+  const text = el.dataset.text || '';
+  const normToOrig = buildNormMap(text);
+  const already = parseInt(el.dataset.revealed || '0');
+  if (normCount <= already) return;
+
+  // normCount文字目までのorig位置を求める
+  const revealUpTo = normToOrig[normCount - 1] ?? text.length - 1;
+
+  for (let i = 0; i <= revealUpTo; i++) {
+    const span = document.getElementById(`ch-${lineIdx}-${i}`);
+    if (span && span.textContent === '*') {
+      span.textContent = span.dataset.char === ' ' ? '\u00A0' : span.dataset.char;
+      span.style.color = 'var(--green)';
+    }
+  }
+  el.dataset.revealed = normCount;
+  el.classList.remove('hidden-line');
+  el.classList.add('current');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // 話したテキストと原稿行を照合して進める
@@ -653,7 +697,6 @@ function matchTranscriptToScript(transcript) {
 
   const normalizedTranscript = normalize(transcript);
 
-  // 現在行から数行先まで照合（スキップ対応）
   for (let offset = 0; offset <= 2; offset++) {
     const idx = currentLineIdx + offset;
     if (idx >= nonEmptyLineIndices.length) break;
@@ -663,41 +706,46 @@ function matchTranscriptToScript(transcript) {
     const normalizedLine = normalize(line);
     if (normalizedLine.length === 0) continue;
 
-    // ① 行全体が含まれる場合はdone確定
+    // 原稿行がtranscriptに完全に含まれる → done
     if (normalizedTranscript.includes(normalizedLine)) {
+      revealChars(lineIdx, normalizedLine.length);
       commitLines(offset, transcript);
       return;
     }
 
-    // ② 原稿行の単語（2文字以上）が1つでもtranscriptに含まれていれば表示
-    const words = extractWords(normalizedLine);
-    const hasWordMatch = words.some(w => normalizedTranscript.includes(w));
-
-    if (hasWordMatch) {
-      // 行を「表示済み（revealed）」にする（まだdoneではない）
-      revealLine(lineIdx);
-
-      // 行の70%以上マッチしていればdone
-      let maxMatch = 0;
-      for (const w of words) {
-        if (normalizedTranscript.includes(w)) maxMatch = Math.max(maxMatch, w.length);
+    // 原稿行の先頭から何文字がtranscriptに含まれているか順番に探す
+    let matchedNormChars = 0;
+    for (let len = normalizedLine.length; len >= 2; len--) {
+      const sub = normalizedLine.slice(0, len);
+      if (normalizedTranscript.includes(sub)) {
+        matchedNormChars = len;
+        break;
       }
-      const threshold = Math.floor(normalizedLine.length * 0.6);
-      if (maxMatch >= threshold || normalizedLine.length <= 4) {
+    }
+
+    // 先頭からマッチしない場合、任意の2文字以上の部分が含まれるか確認
+    if (matchedNormChars === 0) {
+      for (let len = 2; len <= Math.min(normalizedLine.length, 6); len++) {
+        for (let start = 0; start <= normalizedLine.length - len; start++) {
+          if (normalizedTranscript.includes(normalizedLine.slice(start, start + len))) {
+            matchedNormChars = start + len;
+            break;
+          }
+        }
+        if (matchedNormChars > 0) break;
+      }
+    }
+
+    if (matchedNormChars > 0) {
+      revealChars(lineIdx, matchedNormChars);
+
+      // 行の80%以上マッチ → done
+      if (matchedNormChars >= Math.floor(normalizedLine.length * 0.8)) {
         commitLines(offset, transcript);
       }
       return;
     }
   }
-}
-
-// 行の本文を表示するが、まだdoneにはしない
-function revealLine(lineIdx) {
-  const el = document.getElementById(`line-${lineIdx}`);
-  if (!el || el.classList.contains('done')) return;
-  el.classList.remove('hidden-line');
-  el.classList.add('current');
-  el.textContent = el.dataset.text || el.textContent;
 }
 
 // offsetまでの行をすべてdoneにして次へ進む
@@ -710,7 +758,6 @@ function commitLines(offset, transcript) {
   updateProgress();
   highlightCurrentLine();
 
-  // 連続マッチの確認
   if (currentLineIdx < nonEmptyLineIndices.length) {
     matchTranscriptToScript(transcript);
   }
