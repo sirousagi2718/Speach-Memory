@@ -511,11 +511,21 @@ async function startRecording() {
     source.connect(analyser);
     drawWaveform();
 
-    mediaRecorder = new MediaRecorder(stream);
+    // ブラウザがサポートするMIMEタイプを自動選択
+    const mimeType = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/mp4',
+      'audio/aac',
+    ].find(t => MediaRecorder.isTypeSupported(t)) || '';
+
+    const recorderOptions = mimeType ? { mimeType } : {};
+    mediaRecorder = new MediaRecorder(stream, recorderOptions);
     audioChunks = [];
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
     mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      const blob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
       saveRecording(blob);
       stream.getTracks().forEach(t => t.stop());
       cancelAnimationFrame(animFrame);
