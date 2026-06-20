@@ -531,24 +531,24 @@ async function startPractice() {
   doneLines = new Set();
   accumulatedTranscript = '';
 
-  // 原稿表示を構築（テキストはdata属性に保存し、未読行は*で隠す）
-  const display = document.getElementById('speech-display');
-  display.innerHTML = scriptLines.map((line, i) => {
-    const isEmpty = line.trim().length === 0;
-    const masked = isEmpty ? '&nbsp;' : '*'.repeat(Math.min(line.length, 12));
-    return `<div class="speech-line${isEmpty ? '' : ' hidden-line'}" id="line-${i}" data-text="${line.replace(/"/g, '&quot;')}">${isEmpty ? '&nbsp;' : masked}</div>`;
-  }).join('');
-
   document.getElementById('edit-area').style.display = 'none';
   document.getElementById('reading-area').style.display = 'block';
-
-  // ボタン有効化
   document.getElementById('sr-btn').disabled = false;
   document.getElementById('rec-btn').disabled = false;
-  document.getElementById('sr-status-text').textContent = '⏳ よみがな変換中…';
+  document.getElementById('sr-status-text').textContent = '⏳ ひらがな変換中…';
 
   // よみがな変換（Gemini APIがあれば使う、なければ自前normalize）
   scriptLinesYomi = await convertToYomi(scriptLines);
+
+  // 原稿表示を構築：表示もひらがな、data-textもひらがな
+  const display = document.getElementById('speech-display');
+  display.innerHTML = scriptLines.map((line, i) => {
+    const isEmpty = line.trim().length === 0;
+    // ひらがな版（記号は元テキストから補完）
+    const yomi = isEmpty ? '' : (scriptLinesYomi[i] || normalize(line));
+    const masked = isEmpty ? '&nbsp;' : '*'.repeat(Math.min(yomi.length, 12));
+    return `<div class="speech-line${isEmpty ? '' : ' hidden-line'}" id="line-${i}" data-text="${yomi.replace(/"/g, '&quot;')}">${isEmpty ? '&nbsp;' : masked}</div>`;
+  }).join('');
 
   updateProgress();
   highlightCurrentLine();
@@ -715,30 +715,24 @@ function buildNormMap(text) {
   return normToOrig;
 }
 
-// 指定行をn文字目（よみがな上）まで表示する
-// よみがなと元テキストは文字数が違うので、よみがな上の割合で元テキストを表示する
-function revealChars(lineIdx, yomiMatchedChars) {
+// 指定行をn文字目（ひらがな上）まで表示する
+function revealChars(lineIdx, matchedChars) {
   const el = document.getElementById(`line-${lineIdx}`);
   if (!el) return;
   buildLineSpans(lineIdx);
 
-  const origText = el.dataset.text || '';
-  const yomiText = scriptLinesYomi[lineIdx] || normalize(origText);
   const already = parseInt(el.dataset.revealed || '0');
-  if (yomiMatchedChars <= already) return;
+  if (matchedChars <= already) return;
 
-  // よみがな上の進捗割合で元テキストの何文字目まで表示するか決める
-  const ratio = yomiMatchedChars / Math.max(yomiText.length, 1);
-  const revealUpTo = Math.floor(origText.length * ratio);
-
-  for (let i = 0; i < revealUpTo; i++) {
+  // data-textはひらがななので1:1で対応
+  for (let i = already; i < matchedChars; i++) {
     const span = document.getElementById(`ch-${lineIdx}-${i}`);
-    if (span && span.textContent === '*') {
-      span.textContent = span.dataset.char === ' ' ? '\u00A0' : span.dataset.char;
+    if (span) {
+      span.textContent = span.dataset.char || span.textContent;
       span.style.color = 'var(--green)';
     }
   }
-  el.dataset.revealed = yomiMatchedChars;
+  el.dataset.revealed = matchedChars;
   el.classList.remove('hidden-line');
   el.classList.add('current');
   el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
