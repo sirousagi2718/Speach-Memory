@@ -182,9 +182,21 @@
     min-height: 1.8em;
   }
 
+  .speech-line.hidden-line {
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    user-select: none;
+  }
+
   .speech-line.done {
     background: #d4edda;
     color: #155724;
+    animation: revealLine 0.4s ease;
+  }
+
+  @keyframes revealLine {
+    from { background: #fff3cd; }
+    to   { background: #d4edda; }
   }
 
   .speech-line.current {
@@ -519,11 +531,13 @@ function startPractice() {
   doneLines = new Set();
   accumulatedTranscript = '';
 
-  // 原稿表示を構築
+  // 原稿表示を構築（テキストはdata属性に保存し、未読行は*で隠す）
   const display = document.getElementById('speech-display');
-  display.innerHTML = scriptLines.map((line, i) =>
-    `<div class="speech-line" id="line-${i}">${line || '&nbsp;'}</div>`
-  ).join('');
+  display.innerHTML = scriptLines.map((line, i) => {
+    const isEmpty = line.trim().length === 0;
+    const masked = isEmpty ? '&nbsp;' : '*'.repeat(Math.min(line.length, 12));
+    return `<div class="speech-line${isEmpty ? '' : ' hidden-line'}" id="line-${i}" data-text="${line.replace(/"/g, '&quot;')}">${isEmpty ? '&nbsp;' : masked}</div>`;
+  }).join('');
 
   document.getElementById('edit-area').style.display = 'none';
   document.getElementById('reading-area').style.display = 'block';
@@ -553,14 +567,23 @@ function exitPractice() {
 
 // ─── 原稿ハイライト ───
 function highlightCurrentLine() {
-  // 全行のcurrentクラスをクリア
-  document.querySelectorAll('.speech-line.current').forEach(el => el.classList.remove('current'));
+  // 全行のcurrentクラスをクリア（読んでいない行は再び隠す）
+  document.querySelectorAll('.speech-line.current').forEach(el => {
+    if (!el.classList.contains('done')) {
+      el.classList.remove('current');
+      el.classList.add('hidden-line');
+      const lineIdx = parseInt(el.id.replace('line-', ''));
+      el.textContent = '*'.repeat(Math.min((el.dataset.text || '').length, 12));
+    }
+  });
 
   if (currentLineIdx >= nonEmptyLineIndices.length) return;
   const lineIdx = nonEmptyLineIndices[currentLineIdx];
   const el = document.getElementById(`line-${lineIdx}`);
   if (el) {
+    el.classList.remove('hidden-line');
     el.classList.add('current');
+    el.textContent = el.dataset.text || el.textContent;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
@@ -569,14 +592,22 @@ function markLineDone(lineIdx) {
   doneLines.add(lineIdx);
   const el = document.getElementById(`line-${lineIdx}`);
   if (el) {
-    el.classList.remove('current');
+    el.classList.remove('current', 'hidden-line');
     el.classList.add('done');
+    el.textContent = el.dataset.text || el.textContent;
   }
 }
 
 function resetHighlights() {
-  document.querySelectorAll('.speech-line').forEach(el => {
-    el.classList.remove('done', 'current');
+  scriptLines.forEach((line, i) => {
+    const el = document.getElementById(`line-${i}`);
+    if (!el) return;
+    el.classList.remove('done', 'current', 'hidden-line');
+    const isEmpty = line.trim().length === 0;
+    if (!isEmpty) {
+      el.classList.add('hidden-line');
+      el.textContent = '*'.repeat(Math.min(line.length, 12));
+    }
   });
   currentLineIdx = 0;
   doneLines = new Set();
