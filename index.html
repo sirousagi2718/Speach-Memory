@@ -108,7 +108,7 @@
 
   #speech-input {
     width: 100%;
-    min-height: 260px;
+    min-height: 300px;
     background: transparent;
     border: 1px solid var(--line);
     border-radius: 4px;
@@ -157,71 +157,131 @@
     gap: 0.6rem;
     margin-top: 0.8rem;
     flex-wrap: wrap;
+    align-items: center;
   }
 
-  #reading-area { display: none; }
-
+  /* 原稿表示 */
   #speech-display {
     font-family: 'Noto Serif JP', serif;
-    font-size: 1rem;
-    line-height: 2;
+    font-size: 1.05rem;
+    line-height: 2.2;
     color: var(--ink);
     border: 1px solid var(--line);
     border-radius: 4px;
-    padding: 1rem 1.2rem;
-    min-height: 260px;
+    padding: 1.2rem 1.4rem;
+    min-height: 300px;
+    max-height: 60vh;
+    overflow-y: auto;
     background: white;
-    white-space: pre-wrap;
   }
 
-  /* Recording panel */
-  .rec-status {
+  .speech-line {
+    padding: 3px 6px;
+    border-radius: 3px;
+    transition: background 0.3s;
+    min-height: 1.8em;
+  }
+
+  .speech-line.done {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .speech-line.current {
+    background: #fff3cd;
+    font-weight: 500;
+  }
+
+  .script-legend {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+
+  .legend-done { color: #155724; }
+  .legend-current { color: #856404; }
+
+  /* 右パネル：音声認識 */
+  .sr-status {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     color: var(--muted);
     margin-bottom: 1rem;
-    min-height: 1.6rem;
+    min-height: 1.8rem;
   }
 
-  .rec-dot {
-    width: 10px; height: 10px;
+  .sr-dot {
+    width: 11px; height: 11px;
     border-radius: 50%;
     background: var(--muted);
     flex-shrink: 0;
+    transition: background 0.3s;
   }
 
-  .rec-dot.recording {
-    background: var(--record);
-    animation: pulse 1s infinite;
+  .sr-dot.listening {
+    background: var(--green);
+    animation: pulse 1.2s infinite;
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
   }
 
-  .waveform-container {
+  .transcript-box {
     background: white;
     border: 1px solid var(--line);
     border-radius: 4px;
-    padding: 0.6rem;
+    padding: 0.9rem 1rem;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: var(--ink);
+    min-height: 90px;
+    max-height: 160px;
+    overflow-y: auto;
     margin-bottom: 0.8rem;
-    height: 70px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
-  canvas#waveform { width: 100%; height: 100%; }
+  .transcript-interim {
+    color: var(--muted);
+    font-style: italic;
+  }
 
+  .progress-bar-wrap {
+    background: var(--line);
+    border-radius: 10px;
+    height: 6px;
+    margin-bottom: 0.8rem;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--green);
+    border-radius: 10px;
+    transition: width 0.4s;
+    width: 0%;
+  }
+
+  .progress-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 0.2rem;
+    margin-bottom: 0.8rem;
+  }
+
+  /* 録音パネル（オプション） */
   .recordings-list {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     margin-top: 0.8rem;
-    max-height: 260px;
+    max-height: 200px;
     overflow-y: auto;
   }
 
@@ -237,31 +297,11 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.3rem;
   }
 
-  .rec-num {
-    font-family: 'Noto Serif JP', serif;
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--accent);
-    min-width: 1.4rem;
-  }
-
-  .rec-label { flex: 1; font-weight: 500; }
-  .rec-dur { color: var(--muted); }
-
-  .recording-item audio {
-    width: 100%;
-    height: 28px;
-    margin-bottom: 0.4rem;
-  }
-
-  .rec-actions {
-    display: flex;
-    gap: 0.4rem;
-    align-items: center;
-  }
+  .rec-label { flex: 1; font-weight: 500; font-size: 0.78rem; }
+  .rec-dur { color: var(--muted); font-size: 0.75rem; }
 
   .del-btn {
     background: none;
@@ -269,37 +309,18 @@
     color: var(--muted);
     cursor: pointer;
     font-size: 0.9rem;
-    padding: 0.15rem 0.3rem;
+    padding: 0.1rem 0.3rem;
     margin-left: auto;
     transition: color 0.15s;
   }
 
   .del-btn:hover { color: var(--record); }
 
-  /* Analysis result */
-  .analysis-box {
-    margin-top: 0.6rem;
-    background: #f8f9fa;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 0.7rem 0.9rem;
-    font-size: 0.78rem;
-    line-height: 1.7;
-    color: var(--ink);
-    display: none;
-  }
-
-  .analysis-box.visible { display: block; }
-  .analysis-box.loading { color: var(--muted); font-style: italic; }
-
-  .analysis-box .diff-ok { color: var(--green); }
-  .analysis-box .diff-ng { color: var(--accent); font-weight: 500; }
-
   .timer-bar {
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    padding: 0.7rem 2rem;
+    padding: 0.6rem 2rem;
     border-top: 1px solid var(--line);
     background: white;
     font-size: 0.8rem;
@@ -308,7 +329,7 @@
 
   #elapsed {
     font-family: 'Noto Serif JP', serif;
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     color: var(--ink);
     min-width: 4rem;
   }
@@ -317,7 +338,7 @@
 
   footer {
     text-align: center;
-    padding: 0.6rem;
+    padding: 0.5rem;
     font-size: 0.7rem;
     color: var(--muted);
     border-top: 1px solid var(--line);
@@ -336,13 +357,13 @@
   <h1>スピーチ暗記ツール</h1>
   <div class="api-key-row">
     🔑
-    <input type="password" id="api-key-input" placeholder="Gemini APIキーを入力" oninput="onApiKeyChange()">
+    <input type="password" id="api-key-input" placeholder="Gemini APIキー（録音分析用）" oninput="onApiKeyChange()">
     <span class="api-status" id="api-status">未設定</span>
   </div>
 </header>
 
 <main>
-  <!-- LEFT -->
+  <!-- LEFT: 原稿 -->
   <div class="panel">
     <div class="panel-label">スピーチ原稿</div>
 
@@ -350,39 +371,55 @@
       <textarea id="speech-input" placeholder="ここにスピーチ原稿を入力してください…"></textarea>
       <div class="char-count"><span id="char-count">0</span> 文字</div>
       <div class="action-row">
-        <button class="btn btn-primary" onclick="startReading()">▶ 読み上げ練習を開始</button>
+        <button class="btn btn-primary" onclick="startPractice()">▶ 練習開始</button>
         <button class="btn btn-outline btn-small" onclick="loadSample()">サンプル</button>
       </div>
     </div>
 
-    <div id="reading-area">
+    <div id="reading-area" style="display:none;">
       <div id="speech-display"></div>
+      <div class="script-legend" id="script-legend">
+        <span class="legend-done">■ 読んだ行</span>
+        <span class="legend-current">■ 現在の行</span>
+      </div>
       <div class="action-row">
-        <button class="btn btn-outline btn-small" onclick="exitReading()">← 編集に戻る</button>
-        <button class="btn btn-outline btn-small" onclick="toggleHighlight()" id="hl-btn">行ハイライト ON</button>
+        <button class="btn btn-outline btn-small" onclick="exitPractice()">← 編集に戻る</button>
+        <button class="btn btn-outline btn-small" onclick="resetHighlights()">リセット</button>
       </div>
     </div>
   </div>
 
-  <!-- RIGHT -->
+  <!-- RIGHT: 音声認識 -->
   <div class="panel">
-    <div class="panel-label">録音・文字起こし・比較</div>
+    <div class="panel-label">リアルタイム音声認識</div>
 
-    <div class="rec-status">
-      <div class="rec-dot" id="rec-dot"></div>
-      <span id="rec-status-text">録音待機中</span>
+    <div class="sr-status">
+      <div class="sr-dot" id="sr-dot"></div>
+      <span id="sr-status-text">練習開始ボタンを押してください</span>
     </div>
 
-    <div class="waveform-container">
-      <canvas id="waveform"></canvas>
+    <div class="transcript-box" id="transcript-box">
+      <span id="transcript-final"></span><span class="transcript-interim" id="transcript-interim"></span>
     </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="progress-label" id="progress-label">進捗: 0 / 0 行</div>
 
     <div class="action-row">
-      <button class="btn btn-accent" id="rec-btn" onclick="toggleRecording()">● 録音開始</button>
-      <button class="btn btn-outline btn-small" onclick="clearAll()">すべて削除</button>
+      <button class="btn btn-green" id="sr-btn" onclick="toggleSpeech()" disabled>🎤 音声認識 開始</button>
+      <button class="btn btn-outline btn-small" onclick="resetHighlights()">リセット</button>
     </div>
 
-    <div id="recordings-list" class="recordings-list"></div>
+    <div style="margin-top:1.2rem; border-top:1px solid var(--line); padding-top:1rem;">
+      <div class="panel-label" style="margin-bottom:0.6rem;">録音（オプション）</div>
+      <div class="action-row" style="margin-top:0;">
+        <button class="btn btn-accent btn-small" id="rec-btn" onclick="toggleRecording()" disabled>● 録音開始</button>
+        <button class="btn btn-outline btn-small" onclick="clearRecordings()">すべて削除</button>
+      </div>
+      <div id="recordings-list" class="recordings-list"></div>
+    </div>
   </div>
 </main>
 
@@ -392,30 +429,38 @@
   <span class="speed-note" id="speed-note"></span>
 </div>
 
-<footer>マイクへのアクセス許可が必要です ／ Gemini APIキーを入力すると文字起こし＋原稿比較が使えます</footer>
+<footer>音声認識はChrome推奨 ／ マイクへのアクセス許可が必要です</footer>
 
 <script>
 // ─── State ───
+let scriptLines = [];       // 原稿の行（空行含む）
+let nonEmptyLineIndices = []; // 空行でない行のインデックス
+let currentLineIdx = 0;     // 現在マッチを試みている行（nonEmptyLineIndices内のインデックス）
+let doneLines = new Set();  // 読み終えた行のインデックス（scriptLines基準）
+
+// Web Speech API
+let recognition = null;
+let isSpeaking = false;
+let accumulatedTranscript = ''; // これまでの確定テキスト全部
+
+// 録音
 let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
 let recordings = [];
 let recCount = 0;
+let recStartTime = null;
 let currentMimeType = '';
 
-let analyser = null;
-let animFrame = null;
-let startTime = null;
-let timerInterval = null;
-
+// タイマー
 let sessionStart = Date.now();
+let practiceStarted = false;
+
 setInterval(() => {
+  if (!practiceStarted) return;
   const s = Math.floor((Date.now() - sessionStart) / 1000);
   document.getElementById('elapsed').textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
 }, 1000);
-
-let highlightEnabled = false;
-let currentLine = 0;
 
 // ─── API Key ───
 function onApiKeyChange() {
@@ -430,19 +475,15 @@ function onApiKeyChange() {
   }
 }
 
-function getApiKey() {
-  return document.getElementById('api-key-input').value.trim();
-}
-
 // ─── Char count ───
-const input = document.getElementById('speech-input');
-input.addEventListener('input', () => {
-  document.getElementById('char-count').textContent = input.value.length;
+const inputEl = document.getElementById('speech-input');
+inputEl.addEventListener('input', () => {
+  document.getElementById('char-count').textContent = inputEl.value.length;
 });
 
 // ─── Sample ───
 function loadSample() {
-  input.value = `皆さん、本日はお集まりいただきありがとうございます。
+  inputEl.value = `皆さん、本日はお集まりいただきありがとうございます。
 
 私は今日、「言葉の力」についてお話ししたいと思います。
 
@@ -460,53 +501,240 @@ function loadSample() {
 それが、より良い社会への第一歩だと私は信じています。
 
 ご清聴ありがとうございました。`;
-  document.getElementById('char-count').textContent = input.value.length;
+  document.getElementById('char-count').textContent = inputEl.value.length;
 }
 
-// ─── Reading Mode ───
-function startReading() {
-  const text = input.value.trim();
+// ─── Practice Start/Stop ───
+function startPractice() {
+  const text = inputEl.value.trim();
   if (!text) { alert('原稿を入力してください。'); return; }
-  const lines = text.split('\n');
+
+  // 行データを準備
+  scriptLines = text.split('\n');
+  nonEmptyLineIndices = scriptLines
+    .map((l, i) => ({ l, i }))
+    .filter(x => x.l.trim().length > 0)
+    .map(x => x.i);
+  currentLineIdx = 0;
+  doneLines = new Set();
+  accumulatedTranscript = '';
+
+  // 原稿表示を構築
   const display = document.getElementById('speech-display');
-  display.innerHTML = lines.map((line, i) =>
-    `<div class="speech-line" id="line-${i}" style="padding:2px 4px; border-radius:3px; cursor:pointer;" onclick="setCurrentLine(${i})">${line || '&nbsp;'}</div>`
+  display.innerHTML = scriptLines.map((line, i) =>
+    `<div class="speech-line" id="line-${i}">${line || '&nbsp;'}</div>`
   ).join('');
+
   document.getElementById('edit-area').style.display = 'none';
   document.getElementById('reading-area').style.display = 'block';
-  currentLine = 0;
-  if (highlightEnabled) highlightLine(0);
+
+  // ボタン有効化
+  document.getElementById('sr-btn').disabled = false;
+  document.getElementById('rec-btn').disabled = false;
+  document.getElementById('sr-status-text').textContent = '🎤 開始ボタンを押してスピーチを始めてください';
+
+  updateProgress();
+  highlightCurrentLine();
+
+  practiceStarted = true;
+  sessionStart = Date.now();
 }
 
-function exitReading() {
+function exitPractice() {
+  stopSpeech();
+  stopRecording();
   document.getElementById('edit-area').style.display = 'block';
   document.getElementById('reading-area').style.display = 'none';
-  clearHighlights();
+  document.getElementById('sr-btn').disabled = true;
+  document.getElementById('rec-btn').disabled = true;
+  document.getElementById('sr-status-text').textContent = '練習開始ボタンを押してください';
+  practiceStarted = false;
 }
 
-function toggleHighlight() {
-  highlightEnabled = !highlightEnabled;
-  document.getElementById('hl-btn').textContent = highlightEnabled ? '行ハイライト OFF' : '行ハイライト ON';
-  if (highlightEnabled) highlightLine(currentLine);
-  else clearHighlights();
+// ─── 原稿ハイライト ───
+function highlightCurrentLine() {
+  // 全行のcurrentクラスをクリア
+  document.querySelectorAll('.speech-line.current').forEach(el => el.classList.remove('current'));
+
+  if (currentLineIdx >= nonEmptyLineIndices.length) return;
+  const lineIdx = nonEmptyLineIndices[currentLineIdx];
+  const el = document.getElementById(`line-${lineIdx}`);
+  if (el) {
+    el.classList.add('current');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 
-function clearHighlights() {
-  document.querySelectorAll('.speech-line').forEach(el => el.style.background = '');
+function markLineDone(lineIdx) {
+  doneLines.add(lineIdx);
+  const el = document.getElementById(`line-${lineIdx}`);
+  if (el) {
+    el.classList.remove('current');
+    el.classList.add('done');
+  }
 }
 
-function highlightLine(idx) {
-  clearHighlights();
-  const el = document.getElementById(`line-${idx}`);
-  if (el) { el.style.background = '#fff3cd'; el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+function resetHighlights() {
+  document.querySelectorAll('.speech-line').forEach(el => {
+    el.classList.remove('done', 'current');
+  });
+  currentLineIdx = 0;
+  doneLines = new Set();
+  accumulatedTranscript = '';
+  document.getElementById('transcript-final').textContent = '';
+  document.getElementById('transcript-interim').textContent = '';
+  updateProgress();
+  if (scriptLines.length > 0) highlightCurrentLine();
 }
 
-function setCurrentLine(idx) {
-  currentLine = idx;
-  if (highlightEnabled) highlightLine(idx);
+function updateProgress() {
+  const total = nonEmptyLineIndices.length;
+  const done = doneLines.size;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('progress-bar').style.width = `${pct}%`;
+  document.getElementById('progress-label').textContent = `進捗: ${done} / ${total} 行 (${pct}%)`;
 }
 
-// ─── Recording ───
+// ─── テキストマッチング ───
+function normalize(text) {
+  return text
+    .replace(/[\s　。、．，！？!?「」『』【】〔〕（）()・…‥〜～]/g, '')
+    .toLowerCase();
+}
+
+// 話したテキストと原稿行を照合して進める
+function matchTranscriptToScript(transcript) {
+  if (currentLineIdx >= nonEmptyLineIndices.length) return;
+
+  const normalizedTranscript = normalize(transcript);
+
+  // 現在行から数行先まで照合を試みる（スキップ対応）
+  for (let offset = 0; offset <= 2; offset++) {
+    const idx = currentLineIdx + offset;
+    if (idx >= nonEmptyLineIndices.length) break;
+
+    const lineIdx = nonEmptyLineIndices[idx];
+    const line = scriptLines[lineIdx];
+    const normalizedLine = normalize(line);
+
+    if (normalizedLine.length === 0) continue;
+
+    // 原稿行の70%以上が話したテキストに含まれていれば「読んだ」と判定
+    const threshold = Math.floor(normalizedLine.length * 0.7);
+    let matchCount = 0;
+
+    // 部分一致スコアを計算（原稿の各文字がtranscriptにあるか）
+    // より実用的に：原稿行全体がtranscriptの末尾付近に含まれているか
+    if (normalizedTranscript.includes(normalizedLine)) {
+      matchCount = normalizedLine.length;
+    } else {
+      // 部分一致：原稿行のどれだけの割合がtranscriptにあるか
+      // 最長共通部分文字列の簡易版
+      for (let len = Math.min(normalizedLine.length, 4); len <= normalizedLine.length; len++) {
+        for (let start = 0; start <= normalizedLine.length - len; start++) {
+          const sub = normalizedLine.slice(start, start + len);
+          if (normalizedTranscript.includes(sub)) {
+            matchCount = Math.max(matchCount, len);
+          }
+        }
+      }
+    }
+
+    if (matchCount >= threshold) {
+      // offsetの間の行もdoneにする
+      for (let k = 0; k <= offset; k++) {
+        const doneIdx = nonEmptyLineIndices[currentLineIdx + k];
+        markLineDone(doneIdx);
+      }
+      currentLineIdx = idx + 1;
+      updateProgress();
+      highlightCurrentLine();
+
+      // さらに次の行とも照合（連続して読んだ場合）
+      if (currentLineIdx < nonEmptyLineIndices.length) {
+        matchTranscriptToScript(transcript);
+      }
+      return;
+    }
+  }
+}
+
+// ─── Web Speech API ───
+function initRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    document.getElementById('sr-status-text').textContent = '⚠ このブラウザは音声認識に対応していません（Chrome推奨）';
+    return null;
+  }
+
+  const rec = new SpeechRecognition();
+  rec.lang = 'ja-JP';
+  rec.continuous = true;
+  rec.interimResults = true;
+
+  rec.onstart = () => {
+    document.getElementById('sr-dot').classList.add('listening');
+    document.getElementById('sr-status-text').textContent = '🎤 認識中… 話してください';
+    document.getElementById('sr-btn').textContent = '⏹ 音声認識 停止';
+  };
+
+  rec.onresult = (event) => {
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+      if (result.isFinal) {
+        accumulatedTranscript += result[0].transcript;
+        matchTranscriptToScript(accumulatedTranscript);
+      } else {
+        interim += result[0].transcript;
+      }
+    }
+    document.getElementById('transcript-final').textContent = accumulatedTranscript.slice(-120);
+    document.getElementById('transcript-interim').textContent = interim;
+  };
+
+  rec.onerror = (e) => {
+    if (e.error === 'no-speech') return; // 無音は無視
+    document.getElementById('sr-status-text').textContent = `エラー: ${e.error}`;
+  };
+
+  rec.onend = () => {
+    if (isSpeaking) {
+      // 自動再起動（continuousでも環境によって止まる）
+      try { rec.start(); } catch(_) {}
+    } else {
+      document.getElementById('sr-dot').classList.remove('listening');
+      document.getElementById('sr-status-text').textContent = '音声認識を停止しました';
+      document.getElementById('sr-btn').textContent = '🎤 音声認識 開始';
+    }
+  };
+
+  return rec;
+}
+
+function toggleSpeech() {
+  if (!isSpeaking) startSpeech();
+  else stopSpeech();
+}
+
+function startSpeech() {
+  if (!recognition) recognition = initRecognition();
+  if (!recognition) return;
+  isSpeaking = true;
+  try { recognition.start(); } catch(_) {}
+}
+
+function stopSpeech() {
+  isSpeaking = false;
+  if (recognition) {
+    try { recognition.stop(); } catch(_) {}
+  }
+  document.getElementById('sr-dot').classList.remove('listening');
+  document.getElementById('sr-btn').textContent = '🎤 音声認識 開始';
+  document.getElementById('sr-status-text').textContent = '停止しました';
+}
+
+// ─── 録音（オプション） ───
 async function toggleRecording() {
   if (!isRecording) await startRecording();
   else stopRecording();
@@ -515,20 +743,8 @@ async function toggleRecording() {
 async function startRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    const actx = new AudioContext();
-    const source = actx.createMediaStreamSource(stream);
-    analyser = actx.createAnalyser();
-    analyser.fftSize = 256;
-    source.connect(analyser);
-    drawWaveform();
-
     const mimeType = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/ogg;codecs=opus',
-      'audio/mp4',
-      'audio/aac',
+      'audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4','audio/aac'
     ].find(t => MediaRecorder.isTypeSupported(t)) || '';
 
     currentMimeType = mimeType;
@@ -539,49 +755,31 @@ async function startRecording() {
       const blob = new Blob(audioChunks, { type: currentMimeType || 'audio/webm' });
       saveRecording(blob);
       stream.getTracks().forEach(t => t.stop());
-      cancelAnimationFrame(animFrame);
-      clearCanvas();
     };
     mediaRecorder.start();
     isRecording = true;
-    startTime = Date.now();
-    timerInterval = setInterval(() => {
-      const s = Math.floor((Date.now() - startTime) / 1000);
-      document.getElementById('rec-status-text').textContent =
-        `録音中… ${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
-    }, 500);
-
+    recStartTime = Date.now();
     document.getElementById('rec-btn').textContent = '■ 録音停止';
     document.getElementById('rec-btn').style.background = '#c0392b';
-    document.getElementById('rec-dot').classList.add('recording');
-    document.getElementById('rec-status-text').textContent = '録音中…';
   } catch(e) {
-    document.getElementById('rec-status-text').textContent = `エラー: ${e.name} — ${e.message}`;
+    alert(`録音エラー: ${e.message}`);
   }
 }
 
 function stopRecording() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   isRecording = false;
-  clearInterval(timerInterval);
   document.getElementById('rec-btn').textContent = '● 録音開始';
   document.getElementById('rec-btn').style.background = '';
-  document.getElementById('rec-dot').classList.remove('recording');
-  document.getElementById('rec-status-text').textContent = '録音待機中';
 }
 
 function saveRecording(blob) {
   recCount++;
   const url = URL.createObjectURL(blob);
-  const dur = Math.floor((Date.now() - startTime) / 1000);
+  const dur = Math.floor((Date.now() - recStartTime) / 1000);
   const timeStr = `${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}`;
-  recordings.push({ url, blob, label: `テイク ${recCount}`, timeStr, dur });
+  recordings.push({ url, blob, timeStr, dur });
   renderRecordings();
-
-  const charLen = input.value.trim().length;
-  if (charLen > 0 && dur > 0) {
-    document.getElementById('speed-note').textContent = `最新テイク: ${Math.round((charLen/dur)*60)} 文字/分`;
-  }
 }
 
 function renderRecordings() {
@@ -590,21 +788,13 @@ function renderRecordings() {
   recordings.forEach((r, i) => {
     const div = document.createElement('div');
     div.className = 'recording-item';
-    div.id = `rec-item-${i}`;
     div.innerHTML = `
       <div class="recording-item-top">
-        <span class="rec-num">${i+1}</span>
-        <span class="rec-label">${r.label}</span>
+        <span class="rec-label">テイク ${i+1}</span>
         <span class="rec-dur">${r.timeStr}</span>
         <button class="del-btn" onclick="deleteRecording(${i})">✕</button>
       </div>
-      <audio controls src="${r.url}" style="width:100%; height:28px; margin-bottom:0.4rem;"></audio>
-      <div class="rec-actions">
-        <button class="btn btn-green btn-small" onclick="analyzeRecording(${i})" id="analyze-btn-${i}">
-          🔍 文字起こし・比較
-        </button>
-      </div>
-      <div class="analysis-box" id="analysis-${i}"></div>
+      <audio controls src="${r.url}" style="width:100%; height:28px;"></audio>
     `;
     list.appendChild(div);
   });
@@ -616,141 +806,13 @@ function deleteRecording(i) {
   renderRecordings();
 }
 
-function clearAll() {
-  if (recordings.length === 0) return;
+function clearRecordings() {
+  if (!recordings.length) return;
   if (!confirm('すべての録音を削除しますか？')) return;
   recordings.forEach(r => URL.revokeObjectURL(r.url));
   recordings = [];
   recCount = 0;
   renderRecordings();
-  document.getElementById('speed-note').textContent = '';
-}
-
-// ─── Gemini Analysis ───
-async function analyzeRecording(i) {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    alert('Gemini APIキーをヘッダーに入力してください。');
-    return;
-  }
-
-  const script = input.value.trim();
-  if (!script) {
-    alert('原稿が入力されていません。');
-    return;
-  }
-
-  const box = document.getElementById(`analysis-${i}`);
-  const btn = document.getElementById(`analyze-btn-${i}`);
-  box.className = 'analysis-box visible loading';
-  box.textContent = '🔄 Geminiで分析中…';
-  btn.disabled = true;
-
-  try {
-    const blob = recordings[i].blob;
-    const base64 = await blobToBase64(blob);
-    const mimeType = blob.type || 'audio/webm';
-
-    const prompt = `あなたはスピーチコーチです。以下の音声を文字起こしし、【原稿】と照らし合わせてフィードバックしてください。
-
-【原稿】
-${script}
-
-以下の形式で日本語で回答してください：
-
-## 文字起こし結果
-（音声の内容をそのまま書き起こす）
-
-## 原稿との比較
-- ✅ 正しく読めた部分
-- ❌ 言い間違い・言い直し・抜け・追加があった部分（原稿→実際に言った内容の形式で）
-
-## 総評
-（全体的な感想・改善ポイントを2〜3文で）`;
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: mimeType, data: base64 } },
-              { text: prompt }
-            ]
-          }]
-        })
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error?.message || `HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '結果を取得できませんでした。';
-
-    box.className = 'analysis-box visible';
-    box.innerHTML = renderMarkdown(text);
-  } catch(e) {
-    box.className = 'analysis-box visible';
-    box.innerHTML = `<span style="color:var(--accent)">❌ エラー: ${e.message}</span>`;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-function renderMarkdown(text) {
-  return text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/^## (.+)$/gm, '<strong style="display:block;margin-top:0.7rem;margin-bottom:0.2rem;font-size:0.82rem;color:var(--ink);">$1</strong>')
-    .replace(/^- ✅(.+)$/gm, '<div class="diff-ok">✅$1</div>')
-    .replace(/^- ❌(.+)$/gm, '<div class="diff-ng">❌$1</div>')
-    .replace(/^- (.+)$/gm, '<div>• $1</div>')
-    .replace(/\n/g, '<br>');
-}
-
-// ─── Waveform ───
-function drawWaveform() {
-  const canvas = document.getElementById('waveform');
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth * 2;
-  canvas.height = canvas.offsetHeight * 2;
-  const buf = new Uint8Array(analyser.frequencyBinCount);
-
-  function draw() {
-    animFrame = requestAnimationFrame(draw);
-    analyser.getByteTimeDomainData(buf);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#c0392b';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    const sliceW = canvas.width / buf.length;
-    let x = 0;
-    buf.forEach((v, i) => {
-      const y = (v / 128) * (canvas.height / 2);
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      x += sliceW;
-    });
-    ctx.stroke();
-  }
-  draw();
-}
-
-function clearCanvas() {
-  const canvas = document.getElementById('waveform');
-  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 </script>
 </body>
