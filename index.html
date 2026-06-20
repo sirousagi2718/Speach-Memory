@@ -201,6 +201,7 @@
 
   .speech-line.current {
     background: #fff3cd;
+    color: #856404;
     font-weight: 500;
   }
 
@@ -567,12 +568,11 @@ function exitPractice() {
 
 // ─── 原稿ハイライト ───
 function highlightCurrentLine() {
-  // 全行のcurrentクラスをクリア（読んでいない行は再び隠す）
+  // 前のcurrent行を*****に戻す
   document.querySelectorAll('.speech-line.current').forEach(el => {
     if (!el.classList.contains('done')) {
       el.classList.remove('current');
       el.classList.add('hidden-line');
-      const lineIdx = parseInt(el.id.replace('line-', ''));
       el.textContent = '*'.repeat(Math.min((el.dataset.text || '').length, 12));
     }
   });
@@ -581,9 +581,11 @@ function highlightCurrentLine() {
   const lineIdx = nonEmptyLineIndices[currentLineIdx];
   const el = document.getElementById(`line-${lineIdx}`);
   if (el) {
+    // current行も*****のまま、スクロールだけする
     el.classList.remove('hidden-line');
     el.classList.add('current');
-    el.textContent = el.dataset.text || el.textContent;
+    // テキストは表示しない（*****のまま）
+    el.textContent = '*'.repeat(Math.min((el.dataset.text || '').length, 12));
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
