@@ -517,7 +517,7 @@ function loadSample() {
 }
 
 // ─── Practice Start/Stop ───
-function startPractice() {
+async function startPractice() {
   const text = inputEl.value.trim();
   if (!text) { alert('原稿を入力してください。'); return; }
 
@@ -545,11 +545,15 @@ function startPractice() {
   // ボタン有効化
   document.getElementById('sr-btn').disabled = false;
   document.getElementById('rec-btn').disabled = false;
-  document.getElementById('sr-status-text').textContent = '🎤 開始ボタンを押してスピーチを始めてください';
+  document.getElementById('sr-status-text').textContent = '⏳ よみがな変換中…';
+
+  // よみがな変換（Gemini APIがあれば使う、なければ自前normalize）
+  scriptLinesYomi = await convertToYomi(scriptLines);
 
   updateProgress();
   highlightCurrentLine();
 
+  document.getElementById('sr-status-text').textContent = '🎤 開始ボタンを押してスピーチを始めてください';
   practiceStarted = true;
   sessionStart = Date.now();
 }
@@ -634,10 +638,57 @@ function updateProgress() {
 }
 
 // ─── テキストマッチング ───
+
+// カタカナ→ひらがな変換
+function toHiragana(text) {
+  return text.replace(/[\u30A1-\u30F6]/g, ch =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60)
+  );
+}
+
+// 正規化：記号除去＋カタカナ→ひらがな＋小文字化
 function normalize(text) {
-  return text
-    .replace(/[\s　。、．，！？!?「」『』【】〔〕（）()・…‥〜～]/g, '')
+  return toHiragana(text)
+    .replace(/[\s　。、．，！？!?「」『』【】〔〕（）()・…‥〜～ー]/g, '')
     .toLowerCase();
+}
+
+// scriptLinesのひらがな読みを格納（Gemini変換後）
+let scriptLinesYomi = []; // normalize済みのよみがな（インデックスはscriptLinesと対応）
+
+// Gemini APIで原稿全行をひらがなに変換する
+async function convertToYomi(lines) {
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  if (!apiKey) {
+    // APIキーがなければ元テキストをnormalizeして代用
+    return lines.map(l => normalize(l));
+  }
+
+  const text = lines.map((l, i) => `${i}:${l}`).join('\n');
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: `以下の各行をひらがなのみに変換してください。記号・句読点は除去し、番号:ひらがな の形式で返してください。それ以外は何も出力しないでください。\n\n${text}` }]
+          }]
+        })
+      }
+    );
+    const data = await res.json();
+    const result = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const yomiMap = {};
+    result.split('\n').forEach(row => {
+      const m = row.match(/^(\d+):(.*)$/);
+      if (m) yomiMap[parseInt(m[1])] = m[2].trim();
+    });
+    return lines.map((l, i) => normalize(yomiMap[i] ?? l));
+  } catch(e) {
+    return lines.map(l => normalize(l));
+  }
 }
 
 // 原稿行をspan文字単位で構築（初期は*で隠す）
@@ -664,28 +715,30 @@ function buildNormMap(text) {
   return normToOrig;
 }
 
-// 指定行をn文字目（正規化後）まで表示する
-function revealChars(lineIdx, normCount) {
+// 指定行をn文字目（よみがな上）まで表示する
+// よみがなと元テキストは文字数が違うので、よみがな上の割合で元テキストを表示する
+function revealChars(lineIdx, yomiMatchedChars) {
   const el = document.getElementById(`line-${lineIdx}`);
   if (!el) return;
   buildLineSpans(lineIdx);
 
-  const text = el.dataset.text || '';
-  const normToOrig = buildNormMap(text);
+  const origText = el.dataset.text || '';
+  const yomiText = scriptLinesYomi[lineIdx] || normalize(origText);
   const already = parseInt(el.dataset.revealed || '0');
-  if (normCount <= already) return;
+  if (yomiMatchedChars <= already) return;
 
-  // normCount文字目までのorig位置を求める
-  const revealUpTo = normToOrig[normCount - 1] ?? text.length - 1;
+  // よみがな上の進捗割合で元テキストの何文字目まで表示するか決める
+  const ratio = yomiMatchedChars / Math.max(yomiText.length, 1);
+  const revealUpTo = Math.floor(origText.length * ratio);
 
-  for (let i = 0; i <= revealUpTo; i++) {
+  for (let i = 0; i < revealUpTo; i++) {
     const span = document.getElementById(`ch-${lineIdx}-${i}`);
     if (span && span.textContent === '*') {
       span.textContent = span.dataset.char === ' ' ? '\u00A0' : span.dataset.char;
       span.style.color = 'var(--green)';
     }
   }
-  el.dataset.revealed = normCount;
+  el.dataset.revealed = yomiMatchedChars;
   el.classList.remove('hidden-line');
   el.classList.add('current');
   el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -695,52 +748,52 @@ function revealChars(lineIdx, normCount) {
 function matchTranscriptToScript(transcript) {
   if (currentLineIdx >= nonEmptyLineIndices.length) return;
 
-  const normalizedTranscript = normalize(transcript);
+  // 音声認識結果もひらがなに変換して比較
+  const normalizedTranscript = normalize(toHiragana(transcript));
 
   for (let offset = 0; offset <= 2; offset++) {
     const idx = currentLineIdx + offset;
     if (idx >= nonEmptyLineIndices.length) break;
 
     const lineIdx = nonEmptyLineIndices[idx];
-    const line = scriptLines[lineIdx];
-    const normalizedLine = normalize(line);
-    if (normalizedLine.length === 0) continue;
+    // よみがなで比較
+    const yomiLine = scriptLinesYomi[lineIdx] || normalize(scriptLines[lineIdx]);
+    if (yomiLine.length === 0) continue;
 
-    // 原稿行がtranscriptに完全に含まれる → done
-    if (normalizedTranscript.includes(normalizedLine)) {
-      revealChars(lineIdx, normalizedLine.length);
+    // 完全一致 → done
+    if (normalizedTranscript.includes(yomiLine)) {
+      revealChars(lineIdx, yomiLine.length);
       commitLines(offset, transcript);
       return;
     }
 
-    // 原稿行の先頭から何文字がtranscriptに含まれているか順番に探す
-    let matchedNormChars = 0;
-    for (let len = normalizedLine.length; len >= 2; len--) {
-      const sub = normalizedLine.slice(0, len);
-      if (normalizedTranscript.includes(sub)) {
-        matchedNormChars = len;
+    // 先頭から最長マッチを探す
+    let matchedChars = 0;
+    for (let len = yomiLine.length; len >= 2; len--) {
+      if (normalizedTranscript.includes(yomiLine.slice(0, len))) {
+        matchedChars = len;
         break;
       }
     }
 
-    // 先頭からマッチしない場合、任意の2文字以上の部分が含まれるか確認
-    if (matchedNormChars === 0) {
-      for (let len = 2; len <= Math.min(normalizedLine.length, 6); len++) {
-        for (let start = 0; start <= normalizedLine.length - len; start++) {
-          if (normalizedTranscript.includes(normalizedLine.slice(start, start + len))) {
-            matchedNormChars = start + len;
+    // 先頭マッチなければ任意位置で2文字以上マッチを探す
+    if (matchedChars === 0) {
+      for (let len = 2; len <= Math.min(yomiLine.length, 6); len++) {
+        for (let start = 0; start <= yomiLine.length - len; start++) {
+          if (normalizedTranscript.includes(yomiLine.slice(start, start + len))) {
+            matchedChars = start + len;
             break;
           }
         }
-        if (matchedNormChars > 0) break;
+        if (matchedChars > 0) break;
       }
     }
 
-    if (matchedNormChars > 0) {
-      revealChars(lineIdx, matchedNormChars);
+    if (matchedChars > 0) {
+      revealChars(lineIdx, matchedChars);
 
-      // 行の80%以上マッチ → done
-      if (matchedNormChars >= Math.floor(normalizedLine.length * 0.8)) {
+      // 80%以上 → done
+      if (matchedChars >= Math.floor(yomiLine.length * 0.8)) {
         commitLines(offset, transcript);
       }
       return;
