@@ -187,6 +187,28 @@
     color: var(--muted);
   }
 
+  .phrase {
+    transition: color 0.25s, background 0.25s;
+    border-radius: 3px;
+    padding: 0 1px;
+  }
+
+  .phrase.hidden-phrase {
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  .phrase.current {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .phrase.done {
+    color: #155724;
+    background: #d4edda;
+    animation: revealLine 0.3s ease;
+  }
+
   .speech-line.done {
     background: #d4edda;
     color: #155724;
@@ -447,8 +469,13 @@
 // ─── State ───
 let scriptLines = [];       // 原稿の行（空行含む）
 let nonEmptyLineIndices = []; // 空行でない行のインデックス
-let currentLineIdx = 0;     // 現在マッチを試みている行（nonEmptyLineIndices内のインデックス）
-let doneLines = new Set();  // 読み終えた行のインデックス（scriptLines基準）
+let currentLineIdx = 0;
+let doneLines = new Set();
+
+// 文節データ：全文節を一列に並べた配列
+// { text: 表示テキスト, yomi: 比較用ひらがな, lineIdx: 所属行, revealed: 表示済みか }
+let phrases = [];
+let currentPhraseIdx = 0;   // 次に読むべき文節
 
 // Web Speech API
 let recognition = null;
@@ -521,37 +548,42 @@ async function startPractice() {
   const text = inputEl.value.trim();
   if (!text) { alert('原稿を入力してください。'); return; }
 
-  // 行データを準備
   scriptLines = text.split('\n');
-  nonEmptyLineIndices = scriptLines
-    .map((l, i) => ({ l, i }))
-    .filter(x => x.l.trim().length > 0)
-    .map(x => x.i);
-  currentLineIdx = 0;
-  doneLines = new Set();
+  currentPhraseIdx = 0;
   accumulatedTranscript = '';
 
   document.getElementById('edit-area').style.display = 'none';
   document.getElementById('reading-area').style.display = 'block';
   document.getElementById('sr-btn').disabled = false;
   document.getElementById('rec-btn').disabled = false;
-  document.getElementById('sr-status-text').textContent = '⏳ ひらがな変換中…';
+  document.getElementById('sr-status-text').textContent = '⏳ 文節を解析中…';
 
-  // よみがな変換（Gemini APIがあれば使う、なければ自前normalize）
-  scriptLinesYomi = await convertToYomi(scriptLines);
+  // Gemini APIで文節分割＋ひらがな読み取得
+  phrases = await splitIntoPhrases(scriptLines);
 
-  // 原稿表示を構築：表示もひらがな、data-textもひらがな
+  // 原稿表示を行ごと→文節spanで構築
   const display = document.getElementById('speech-display');
-  display.innerHTML = scriptLines.map((line, i) => {
-    const isEmpty = line.trim().length === 0;
-    // ひらがな版（記号は元テキストから補完）
-    const yomi = isEmpty ? '' : (scriptLinesYomi[i] || normalize(line));
-    const masked = isEmpty ? '&nbsp;' : '*'.repeat(Math.min(yomi.length, 12));
-    return `<div class="speech-line${isEmpty ? '' : ' hidden-line'}" id="line-${i}" data-text="${yomi.replace(/"/g, '&quot;')}">${isEmpty ? '&nbsp;' : masked}</div>`;
-  }).join('');
+  let html = '';
+  let prevLine = -1;
+  phrases.forEach((ph, pIdx) => {
+    if (ph.lineIdx !== prevLine) {
+      if (prevLine !== -1) html += '</div>';
+      // 空行を補完
+      for (let blank = prevLine + 1; blank < ph.lineIdx; blank++) {
+        if ((scriptLines[blank] || '').trim() === '') html += '<div class="speech-line">&nbsp;</div>';
+      }
+      html += `<div class="speech-line" id="line-${ph.lineIdx}">`;
+      prevLine = ph.lineIdx;
+    }
+    // 文節は*で隠す
+    const mask = '*'.repeat(Math.min(ph.yomi.length || ph.text.length, 8));
+    html += `<span class="phrase hidden-phrase" id="phrase-${pIdx}" data-text="${ph.text.replace(/"/g,'&quot;')}">${mask}</span>`;
+  });
+  if (prevLine !== -1) html += '</div>';
+  display.innerHTML = html;
 
   updateProgress();
-  highlightCurrentLine();
+  highlightCurrentPhrase();
 
   document.getElementById('sr-status-text').textContent = '🎤 開始ボタンを押してスピーチを始めてください';
   practiceStarted = true;
@@ -569,76 +601,54 @@ function exitPractice() {
   practiceStarted = false;
 }
 
-// ─── 原稿ハイライト ───
-function highlightCurrentLine() {
-  document.querySelectorAll('.speech-line.current').forEach(el => {
-    if (!el.classList.contains('done')) {
-      el.classList.remove('current');
-      el.classList.add('hidden-line');
-    }
+// ─── 文節ハイライト ───
+// 現在の文節を黄色で示す（*のまま）
+function highlightCurrentPhrase() {
+  document.querySelectorAll('.phrase.current').forEach(el => {
+    if (!el.classList.contains('done')) el.classList.remove('current');
   });
-
-  if (currentLineIdx >= nonEmptyLineIndices.length) return;
-  const lineIdx = nonEmptyLineIndices[currentLineIdx];
-  const el = document.getElementById(`line-${lineIdx}`);
-  if (el) {
-    el.classList.remove('hidden-line');
+  if (currentPhraseIdx >= phrases.length) return;
+  const el = document.getElementById(`phrase-${currentPhraseIdx}`);
+  if (el && !el.classList.contains('done')) {
     el.classList.add('current');
-    // *のままスクロールだけ
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
 
-function markLineDone(lineIdx) {
-  doneLines.add(lineIdx);
-  const el = document.getElementById(`line-${lineIdx}`);
+// 文節を表示済み（done）にする
+function markPhraseDone(pIdx) {
+  const el = document.getElementById(`phrase-${pIdx}`);
   if (!el) return;
-  buildLineSpans(lineIdx);
-  // 全文字を表示して緑に
-  el.querySelectorAll('.ch').forEach(span => {
-    if (span.textContent === '*') {
-      span.textContent = span.dataset.char === ' ' ? '\u00A0' : span.dataset.char;
-    }
-    span.style.color = '#155724';
-  });
-  el.classList.remove('current', 'hidden-line');
+  el.textContent = el.dataset.text || el.textContent;
+  el.classList.remove('hidden-phrase', 'current');
   el.classList.add('done');
 }
 
 function resetHighlights() {
-  scriptLines.forEach((line, i) => {
-    const el = document.getElementById(`line-${i}`);
+  phrases.forEach((ph, pIdx) => {
+    const el = document.getElementById(`phrase-${pIdx}`);
     if (!el) return;
-    el.classList.remove('done', 'current', 'hidden-line');
-    el.dataset.built = '';
-    el.dataset.revealed = '0';
-    const isEmpty = line.trim().length === 0;
-    if (isEmpty) {
-      el.innerHTML = '&nbsp;';
-    } else {
-      el.classList.add('hidden-line');
-      el.innerHTML = '*'.repeat(Math.min(line.length, 12));
-    }
+    el.classList.remove('done', 'current');
+    el.classList.add('hidden-phrase');
+    el.textContent = '*'.repeat(Math.min(ph.yomi.length || ph.text.length, 8));
   });
-  currentLineIdx = 0;
-  doneLines = new Set();
+  currentPhraseIdx = 0;
   accumulatedTranscript = '';
   document.getElementById('transcript-final').textContent = '';
   document.getElementById('transcript-interim').textContent = '';
   updateProgress();
-  if (scriptLines.length > 0) highlightCurrentLine();
+  highlightCurrentPhrase();
 }
 
 function updateProgress() {
-  const total = nonEmptyLineIndices.length;
-  const done = doneLines.size;
+  const total = phrases.length;
+  const done = currentPhraseIdx;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   document.getElementById('progress-bar').style.width = `${pct}%`;
-  document.getElementById('progress-label').textContent = `進捗: ${done} / ${total} 行 (${pct}%)`;
+  document.getElementById('progress-label').textContent = `進捗: ${done} / ${total} 文節 (${pct}%)`;
 }
 
-// ─── テキストマッチング ───
-
+// ─── テキスト正規化 ───
 // カタカナ→ひらがな変換
 function toHiragana(text) {
   return text.replace(/[\u30A1-\u30F6]/g, ch =>
@@ -653,18 +663,23 @@ function normalize(text) {
     .toLowerCase();
 }
 
-// scriptLinesのひらがな読みを格納（Gemini変換後）
-let scriptLinesYomi = []; // normalize済みのよみがな（インデックスはscriptLinesと対応）
-
-// Gemini APIで原稿全行をひらがなに変換する
-async function convertToYomi(lines) {
+// Gemini APIで原稿を文節に分割し、各文節の表示テキストとひらがな読みを取得
+async function splitIntoPhrases(lines) {
   const apiKey = document.getElementById('api-key-input').value.trim();
+  const result = []; // {text, yomi, lineIdx}
+
   if (!apiKey) {
-    // APIキーがなければ元テキストをnormalizeして代用
-    return lines.map(l => normalize(l));
+    // APIキーなし：行を句読点で簡易分割
+    lines.forEach((line, lineIdx) => {
+      if (line.trim().length === 0) return;
+      const parts = line.split(/(?<=[、。，．！？])/).filter(p => p.length > 0);
+      parts.forEach(p => result.push({ text: p, yomi: normalize(p), lineIdx }));
+    });
+    return result;
   }
 
-  const text = lines.map((l, i) => `${i}:${l}`).join('\n');
+  // 行番号付きで送信
+  const numbered = lines.map((l, i) => `${i}: ${l}`).join('\n');
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -673,141 +688,108 @@ async function convertToYomi(lines) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
-            parts: [{ text: `以下の各行をひらがなのみに変換してください。記号・句読点は除去し、番号:ひらがな の形式で返してください。それ以外は何も出力しないでください。\n\n${text}` }]
+            parts: [{ text: `以下の原稿を文節（意味のまとまり、2〜6文字程度）に分割してください。各文節について「行番号|表示テキスト|ひらがな読み」の形式で1行ずつ出力してください。ひらがな読みは記号を除いたひらがなのみ。それ以外は何も出力しないでください。
+
+例：
+0: 皆さん、本日は
+↓
+0|皆さん、|みなさん
+0|本日は|ほんじつは
+
+原稿：
+${numbered}` }]
           }]
         })
       }
     );
     const data = await res.json();
-    const result = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const yomiMap = {};
-    result.split('\n').forEach(row => {
-      const m = row.match(/^(\d+):(.*)$/);
-      if (m) yomiMap[parseInt(m[1])] = m[2].trim();
+    const out = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    out.split('\n').forEach(row => {
+      const m = row.match(/^(\d+)\|(.+?)\|(.+)$/);
+      if (m) {
+        result.push({
+          text: m[2],
+          yomi: normalize(m[3]),
+          lineIdx: parseInt(m[1])
+        });
+      }
     });
-    return lines.map((l, i) => normalize(yomiMap[i] ?? l));
+    if (result.length === 0) throw new Error('empty');
+    return result;
   } catch(e) {
-    return lines.map(l => normalize(l));
+    // 失敗時は簡易分割
+    lines.forEach((line, lineIdx) => {
+      if (line.trim().length === 0) return;
+      const parts = line.split(/(?<=[、。，．！？])/).filter(p => p.length > 0);
+      parts.forEach(p => result.push({ text: p, yomi: normalize(p), lineIdx }));
+    });
+    return result;
   }
 }
 
-// 原稿行をspan文字単位で構築（初期は*で隠す）
-function buildLineSpans(lineIdx) {
-  const el = document.getElementById(`line-${lineIdx}`);
-  if (!el || el.dataset.built) return;
-  const text = el.dataset.text || '';
-  el.innerHTML = text.split('').map((ch, i) =>
-    `<span class="ch" id="ch-${lineIdx}-${i}" data-char="${ch}">${ch === ' ' ? '&nbsp;' : '*'}</span>`
-  ).join('');
-  el.dataset.built = '1';
-  el.dataset.revealed = '0'; // 何文字目まで表示済みか（正規化後）
-}
-
-// 正規化テキスト上のインデックス→元テキストのインデックスのマッピングを返す
-function buildNormMap(text) {
-  const normToOrig = [];
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (!/[\s　。、．，！？!?「」『』【】〔〕（）()・…‥〜～]/.test(ch)) {
-      normToOrig.push(i);
-    }
-  }
-  return normToOrig;
-}
-
-// 指定行をn文字目（ひらがな上）まで表示する
-function revealChars(lineIdx, matchedChars) {
-  const el = document.getElementById(`line-${lineIdx}`);
-  if (!el) return;
-  buildLineSpans(lineIdx);
-
-  const already = parseInt(el.dataset.revealed || '0');
-  if (matchedChars <= already) return;
-
-  // data-textはひらがななので1:1で対応
-  for (let i = already; i < matchedChars; i++) {
-    const span = document.getElementById(`ch-${lineIdx}-${i}`);
-    if (span) {
-      span.textContent = span.dataset.char || span.textContent;
-      span.style.color = 'var(--green)';
-    }
-  }
-  el.dataset.revealed = matchedChars;
-  el.classList.remove('hidden-line');
-  el.classList.add('current');
-  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-// 話したテキストと原稿行を照合して進める
+// ─── 文節マッチング ───
+// 認識テキストと文節を照合。次の文節（または先の文節）が読まれたら表示して進む
 function matchTranscriptToScript(transcript) {
-  if (currentLineIdx >= nonEmptyLineIndices.length) return;
+  if (currentPhraseIdx >= phrases.length) return;
 
-  // 音声認識結果もひらがなに変換して比較
-  const normalizedTranscript = normalize(toHiragana(transcript));
+  const normTranscript = normalize(transcript);
 
-  for (let offset = 0; offset <= 2; offset++) {
-    const idx = currentLineIdx + offset;
-    if (idx >= nonEmptyLineIndices.length) break;
+  // 現在の文節から先をスキャン。マッチした文節まで一気に表示
+  // 直近の認識結果末尾を重視するため、末尾80文字程度で照合
+  const recent = normTranscript.slice(-80);
 
-    const lineIdx = nonEmptyLineIndices[idx];
-    // よみがなで比較
-    const yomiLine = scriptLinesYomi[lineIdx] || normalize(scriptLines[lineIdx]);
-    if (yomiLine.length === 0) continue;
-
-    // 完全一致 → done
-    if (normalizedTranscript.includes(yomiLine)) {
-      revealChars(lineIdx, yomiLine.length);
-      commitLines(offset, transcript);
-      return;
+  let advanced = false;
+  // 最大で残り全文節を確認
+  for (let pIdx = currentPhraseIdx; pIdx < phrases.length; pIdx++) {
+    const yomi = phrases[pIdx].yomi;
+    if (!yomi) { // 読みが空ならスキップ表示
+      markPhraseDone(pIdx);
+      currentPhraseIdx = pIdx + 1;
+      advanced = true;
+      continue;
     }
 
-    // 先頭から最長マッチを探す
-    let matchedChars = 0;
-    for (let len = yomiLine.length; len >= 2; len--) {
-      if (normalizedTranscript.includes(yomiLine.slice(0, len))) {
-        matchedChars = len;
-        break;
+    // 文節がマッチするか判定（2文字以上 or 短い文節は全体）
+    const matched = phraseMatches(yomi, recent) || phraseMatches(yomi, normTranscript);
+
+    if (matched) {
+      // この文節までの未表示文節を全部表示（飛ばした分も含む）
+      for (let k = currentPhraseIdx; k <= pIdx; k++) {
+        markPhraseDone(k);
       }
+      currentPhraseIdx = pIdx + 1;
+      advanced = true;
+      // さらに次の文節も同じtranscriptでマッチするか続行
+    } else {
+      // 現在の文節がまだマッチしていない場合
+      // ただし「次の文節」がマッチしていれば飛ばしたいので、数文節先まで探す
+      if (pIdx - currentPhraseIdx >= 3) break; // 3文節先まで見て無ければ打ち切り
     }
+  }
 
-    // 先頭マッチなければ任意位置で2文字以上マッチを探す
-    if (matchedChars === 0) {
-      for (let len = 2; len <= Math.min(yomiLine.length, 6); len++) {
-        for (let start = 0; start <= yomiLine.length - len; start++) {
-          if (normalizedTranscript.includes(yomiLine.slice(start, start + len))) {
-            matchedChars = start + len;
-            break;
-          }
-        }
-        if (matchedChars > 0) break;
-      }
-    }
-
-    if (matchedChars > 0) {
-      revealChars(lineIdx, matchedChars);
-
-      // 80%以上 → done
-      if (matchedChars >= Math.floor(yomiLine.length * 0.8)) {
-        commitLines(offset, transcript);
-      }
-      return;
-    }
+  if (advanced) {
+    updateProgress();
+    highlightCurrentPhrase();
   }
 }
 
-// offsetまでの行をすべてdoneにして次へ進む
-function commitLines(offset, transcript) {
-  for (let k = 0; k <= offset; k++) {
-    const doneIdx = nonEmptyLineIndices[currentLineIdx + k];
-    markLineDone(doneIdx);
+// 文節のひらがな読みが認識テキストに含まれるか
+function phraseMatches(yomi, transcript) {
+  if (yomi.length === 0) return false;
+  // 短い文節（1〜2文字）は完全一致を要求
+  if (yomi.length <= 2) {
+    return transcript.includes(yomi);
   }
-  currentLineIdx += offset + 1;
-  updateProgress();
-  highlightCurrentLine();
-
-  if (currentLineIdx < nonEmptyLineIndices.length) {
-    matchTranscriptToScript(transcript);
+  // 3文字以上：先頭2文字以上の連続部分が含まれていればOK（認識ゆらぎ対応）
+  for (let len = yomi.length; len >= 2; len--) {
+    for (let start = 0; start + len <= yomi.length; start++) {
+      if (transcript.includes(yomi.slice(start, start + len))) {
+        // マッチ長が文節の半分以上なら認める
+        if (len >= Math.ceil(yomi.length * 0.5)) return true;
+      }
+    }
   }
+  return false;
 }
 
 // ─── Web Speech API ───
