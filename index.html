@@ -11,11 +11,10 @@
     --ink: #1a1a2e;
     --paper: #f7f4ef;
     --accent: #c0392b;
-    --accent-soft: #f5e6e4;
     --muted: #7a7a8c;
     --line: #ddd8d0;
     --record: #e74c3c;
-    --play: #2ecc71;
+    --green: #27ae60;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,23 +30,49 @@
 
   header {
     border-bottom: 2px solid var(--ink);
-    padding: 1.2rem 2rem;
+    padding: 1rem 2rem;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 1rem;
+    flex-wrap: wrap;
   }
 
   header h1 {
     font-family: 'Noto Serif JP', serif;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     letter-spacing: 0.05em;
+    flex: 1;
   }
 
-  header span {
+  .api-key-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 0.78rem;
     color: var(--muted);
-    letter-spacing: 0.08em;
   }
+
+  .api-key-row input {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+    width: 220px;
+    background: white;
+    outline: none;
+  }
+
+  .api-key-row input:focus { border-color: var(--ink); }
+
+  .api-status {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
+    background: #eee;
+    color: var(--muted);
+  }
+
+  .api-status.ready { background: #d4edda; color: #155724; }
 
   main {
     display: grid;
@@ -57,7 +82,7 @@
   }
 
   .panel {
-    padding: 2rem;
+    padding: 1.5rem 2rem;
     border-right: 1px solid var(--line);
   }
 
@@ -81,10 +106,9 @@
     background: var(--line);
   }
 
-  /* ── Left: Input ── */
   #speech-input {
     width: 100%;
-    min-height: 280px;
+    min-height: 260px;
     background: transparent;
     border: 1px solid var(--line);
     border-radius: 4px;
@@ -111,91 +135,58 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.6rem 1.2rem;
+    padding: 0.55rem 1.1rem;
     border: none;
     border-radius: 3px;
     font-family: 'Noto Sans JP', sans-serif;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     cursor: pointer;
     transition: opacity 0.15s, transform 0.1s;
   }
 
   .btn:active { transform: scale(0.97); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .btn-primary {
-    background: var(--ink);
-    color: var(--paper);
-  }
-
-  .btn-accent {
-    background: var(--accent);
-    color: white;
-  }
-
-  .btn-outline {
-    background: transparent;
-    color: var(--ink);
-    border: 1px solid var(--ink);
-  }
-
-  .btn-small {
-    padding: 0.35rem 0.8rem;
-    font-size: 0.78rem;
-  }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-green { background: var(--green); color: white; }
+  .btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+  .btn-small { padding: 0.3rem 0.7rem; font-size: 0.75rem; }
 
   .action-row {
     display: flex;
     gap: 0.6rem;
-    margin-top: 1rem;
+    margin-top: 0.8rem;
     flex-wrap: wrap;
   }
 
-  /* ── Reading mode ── */
-  #reading-area {
-    display: none;
-  }
+  #reading-area { display: none; }
 
   #speech-display {
     font-family: 'Noto Serif JP', serif;
-    font-size: 1.05rem;
+    font-size: 1rem;
     line-height: 2;
     color: var(--ink);
     border: 1px solid var(--line);
     border-radius: 4px;
     padding: 1rem 1.2rem;
-    min-height: 280px;
+    min-height: 260px;
     background: white;
     white-space: pre-wrap;
   }
 
-  .highlight-word {
-    background: #fff3cd;
-    border-radius: 2px;
-    transition: background 0.3s;
-  }
-
-  .highlight-word.current {
-    background: #ffc107;
-    font-weight: 500;
-  }
-
-  /* ── Right: Recording ── */
-  .recording-section { }
-
+  /* Recording panel */
   .rec-status {
     display: flex;
     align-items: center;
     gap: 0.6rem;
     font-size: 0.82rem;
     color: var(--muted);
-    margin-bottom: 1.2rem;
+    margin-bottom: 1rem;
     min-height: 1.6rem;
   }
 
   .rec-dot {
-    width: 10px;
-    height: 10px;
+    width: 10px; height: 10px;
     border-radius: 50%;
     background: var(--muted);
     flex-shrink: 0;
@@ -215,107 +206,127 @@
     background: white;
     border: 1px solid var(--line);
     border-radius: 4px;
-    padding: 0.8rem;
-    margin-bottom: 1rem;
-    height: 80px;
+    padding: 0.6rem;
+    margin-bottom: 0.8rem;
+    height: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
-  canvas#waveform {
-    width: 100%;
-    height: 100%;
-  }
+  canvas#waveform { width: 100%; height: 100%; }
 
   .recordings-list {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    margin-top: 1rem;
-    max-height: 300px;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+    max-height: 260px;
     overflow-y: auto;
   }
 
   .recording-item {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.7rem 0.9rem;
     background: white;
     border: 1px solid var(--line);
     border-radius: 4px;
-    font-size: 0.82rem;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.8rem;
   }
 
-  .recording-item .rec-num {
+  .recording-item-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .rec-num {
     font-family: 'Noto Serif JP', serif;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--accent);
-    min-width: 1.5rem;
+    min-width: 1.4rem;
   }
 
-  .recording-item .rec-info {
-    flex: 1;
-    color: var(--muted);
-  }
+  .rec-label { flex: 1; font-weight: 500; }
+  .rec-dur { color: var(--muted); }
 
   .recording-item audio {
-    flex: 1;
-    height: 32px;
+    width: 100%;
+    height: 28px;
+    margin-bottom: 0.4rem;
   }
 
-  .recording-item .del-btn {
+  .rec-actions {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .del-btn {
     background: none;
     border: none;
     color: var(--muted);
     cursor: pointer;
-    font-size: 1rem;
-    padding: 0.2rem;
+    font-size: 0.9rem;
+    padding: 0.15rem 0.3rem;
+    margin-left: auto;
     transition: color 0.15s;
   }
 
-  .recording-item .del-btn:hover { color: var(--record); }
+  .del-btn:hover { color: var(--record); }
 
-  /* ── Timer ── */
+  /* Analysis result */
+  .analysis-box {
+    margin-top: 0.6rem;
+    background: #f8f9fa;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: var(--ink);
+    display: none;
+  }
+
+  .analysis-box.visible { display: block; }
+  .analysis-box.loading { color: var(--muted); font-style: italic; }
+
+  .analysis-box .diff-ok { color: var(--green); }
+  .analysis-box .diff-ng { color: var(--accent); font-weight: 500; }
+
   .timer-bar {
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    padding: 0.8rem 2rem;
+    padding: 0.7rem 2rem;
     border-top: 1px solid var(--line);
     background: white;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: var(--muted);
   }
 
   #elapsed {
     font-family: 'Noto Serif JP', serif;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     color: var(--ink);
-    letter-spacing: 0.05em;
     min-width: 4rem;
   }
 
-  .speed-note {
-    margin-left: auto;
-    font-size: 0.75rem;
-  }
+  .speed-note { margin-left: auto; font-size: 0.73rem; }
 
-  /* ── Scroll to top ── */
   footer {
     text-align: center;
-    padding: 0.8rem;
-    font-size: 0.72rem;
+    padding: 0.6rem;
+    font-size: 0.7rem;
     color: var(--muted);
     border-top: 1px solid var(--line);
   }
 
-  /* ── Responsive ── */
   @media (max-width: 680px) {
     main { grid-template-columns: 1fr; }
     .panel { border-right: none; border-bottom: 1px solid var(--line); }
+    .api-key-row input { width: 160px; }
   }
 </style>
 </head>
@@ -323,25 +334,27 @@
 
 <header>
   <h1>スピーチ暗記ツール</h1>
-  <span>全文確認 ＋ 録音練習</span>
+  <div class="api-key-row">
+    🔑
+    <input type="password" id="api-key-input" placeholder="Gemini APIキーを入力" oninput="onApiKeyChange()">
+    <span class="api-status" id="api-status">未設定</span>
+  </div>
 </header>
 
 <main>
-  <!-- LEFT: Text Panel -->
+  <!-- LEFT -->
   <div class="panel">
     <div class="panel-label">スピーチ原稿</div>
 
-    <!-- Edit mode -->
     <div id="edit-area">
       <textarea id="speech-input" placeholder="ここにスピーチ原稿を入力してください…"></textarea>
       <div class="char-count"><span id="char-count">0</span> 文字</div>
       <div class="action-row">
         <button class="btn btn-primary" onclick="startReading()">▶ 読み上げ練習を開始</button>
-        <button class="btn btn-outline btn-small" onclick="loadSample()">サンプルを読み込む</button>
+        <button class="btn btn-outline btn-small" onclick="loadSample()">サンプル</button>
       </div>
     </div>
 
-    <!-- Reading mode -->
     <div id="reading-area">
       <div id="speech-display"></div>
       <div class="action-row">
@@ -351,9 +364,9 @@
     </div>
   </div>
 
-  <!-- RIGHT: Recording Panel -->
-  <div class="panel recording-section">
-    <div class="panel-label">録音・比較</div>
+  <!-- RIGHT -->
+  <div class="panel">
+    <div class="panel-label">録音・文字起こし・比較</div>
 
     <div class="rec-status">
       <div class="rec-dot" id="rec-dot"></div>
@@ -370,10 +383,6 @@
     </div>
 
     <div id="recordings-list" class="recordings-list"></div>
-
-    <div style="margin-top:1.2rem; font-size:0.78rem; color:var(--muted); line-height:1.7;">
-      💡 録音後は左の原稿を見ながら再生して<br>発音・間・流れを確認しましょう。
-    </div>
   </div>
 </main>
 
@@ -383,7 +392,7 @@
   <span class="speed-note" id="speed-note"></span>
 </div>
 
-<footer>マイクへのアクセス許可が必要です</footer>
+<footer>マイクへのアクセス許可が必要です ／ Gemini APIキーを入力すると文字起こし＋原稿比較が使えます</footer>
 
 <script>
 // ─── State ───
@@ -392,32 +401,44 @@ let audioChunks = [];
 let isRecording = false;
 let recordings = [];
 let recCount = 0;
+let currentMimeType = '';
 
 let analyser = null;
 let animFrame = null;
-
 let startTime = null;
 let timerInterval = null;
+
 let sessionStart = Date.now();
-let sessionInterval = setInterval(updateSessionTimer, 1000);
+setInterval(() => {
+  const s = Math.floor((Date.now() - sessionStart) / 1000);
+  document.getElementById('elapsed').textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+}, 1000);
 
 let highlightEnabled = false;
 let currentLine = 0;
-let lines = [];
+
+// ─── API Key ───
+function onApiKeyChange() {
+  const key = document.getElementById('api-key-input').value.trim();
+  const status = document.getElementById('api-status');
+  if (key.startsWith('AIza') && key.length > 20) {
+    status.textContent = '設定済み ✓';
+    status.className = 'api-status ready';
+  } else {
+    status.textContent = key ? '形式を確認' : '未設定';
+    status.className = 'api-status';
+  }
+}
+
+function getApiKey() {
+  return document.getElementById('api-key-input').value.trim();
+}
 
 // ─── Char count ───
 const input = document.getElementById('speech-input');
 input.addEventListener('input', () => {
   document.getElementById('char-count').textContent = input.value.length;
 });
-
-// ─── Session timer ───
-function updateSessionTimer() {
-  const s = Math.floor((Date.now() - sessionStart) / 1000);
-  const m = Math.floor(s / 60);
-  const ss = s % 60;
-  document.getElementById('elapsed').textContent = `${m}:${ss.toString().padStart(2,'0')}`;
-}
 
 // ─── Sample ───
 function loadSample() {
@@ -446,13 +467,11 @@ function loadSample() {
 function startReading() {
   const text = input.value.trim();
   if (!text) { alert('原稿を入力してください。'); return; }
-
-  lines = text.split('\n');
+  const lines = text.split('\n');
   const display = document.getElementById('speech-display');
   display.innerHTML = lines.map((line, i) =>
     `<div class="speech-line" id="line-${i}" style="padding:2px 4px; border-radius:3px; cursor:pointer;" onclick="setCurrentLine(${i})">${line || '&nbsp;'}</div>`
   ).join('');
-
   document.getElementById('edit-area').style.display = 'none';
   document.getElementById('reading-area').style.display = 'block';
   currentLine = 0;
@@ -479,10 +498,7 @@ function clearHighlights() {
 function highlightLine(idx) {
   clearHighlights();
   const el = document.getElementById(`line-${idx}`);
-  if (el) {
-    el.style.background = '#fff3cd';
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
+  if (el) { el.style.background = '#fff3cd'; el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
 function setCurrentLine(idx) {
@@ -492,26 +508,21 @@ function setCurrentLine(idx) {
 
 // ─── Recording ───
 async function toggleRecording() {
-  if (!isRecording) {
-    await startRecording();
-  } else {
-    stopRecording();
-  }
+  if (!isRecording) await startRecording();
+  else stopRecording();
 }
 
 async function startRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    // Analyser for waveform
-    const ctx = new AudioContext();
-    const source = ctx.createMediaStreamSource(stream);
-    analyser = ctx.createAnalyser();
+    const actx = new AudioContext();
+    const source = actx.createMediaStreamSource(stream);
+    analyser = actx.createAnalyser();
     analyser.fftSize = 256;
     source.connect(analyser);
     drawWaveform();
 
-    // ブラウザがサポートするMIMEタイプを自動選択
     const mimeType = [
       'audio/webm;codecs=opus',
       'audio/webm',
@@ -520,36 +531,37 @@ async function startRecording() {
       'audio/aac',
     ].find(t => MediaRecorder.isTypeSupported(t)) || '';
 
-    const recorderOptions = mimeType ? { mimeType } : {};
-    mediaRecorder = new MediaRecorder(stream, recorderOptions);
+    currentMimeType = mimeType;
+    mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
     audioChunks = [];
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
     mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
+      const blob = new Blob(audioChunks, { type: currentMimeType || 'audio/webm' });
       saveRecording(blob);
       stream.getTracks().forEach(t => t.stop());
       cancelAnimationFrame(animFrame);
       clearCanvas();
     };
     mediaRecorder.start();
-
     isRecording = true;
     startTime = Date.now();
-    timerInterval = setInterval(updateRecTimer, 500);
+    timerInterval = setInterval(() => {
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('rec-status-text').textContent =
+        `録音中… ${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+    }, 500);
 
     document.getElementById('rec-btn').textContent = '■ 録音停止';
     document.getElementById('rec-btn').style.background = '#c0392b';
     document.getElementById('rec-dot').classList.add('recording');
     document.getElementById('rec-status-text').textContent = '録音中…';
   } catch(e) {
-    alert('マイクへのアクセスが許可されていません。ブラウザの設定を確認してください。');
+    document.getElementById('rec-status-text').textContent = `エラー: ${e.name} — ${e.message}`;
   }
 }
 
 function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   isRecording = false;
   clearInterval(timerInterval);
   document.getElementById('rec-btn').textContent = '● 録音開始';
@@ -558,31 +570,17 @@ function stopRecording() {
   document.getElementById('rec-status-text').textContent = '録音待機中';
 }
 
-function updateRecTimer() {
-  if (!startTime) return;
-  const s = Math.floor((Date.now() - startTime) / 1000);
-  const m = Math.floor(s / 60);
-  const ss = s % 60;
-  document.getElementById('rec-status-text').textContent = `録音中… ${m}:${ss.toString().padStart(2,'0')}`;
-}
-
 function saveRecording(blob) {
   recCount++;
   const url = URL.createObjectURL(blob);
   const dur = Math.floor((Date.now() - startTime) / 1000);
-  const m = Math.floor(dur / 60);
-  const s = dur % 60;
-  const label = `テイク ${recCount}`;
-  const timeStr = `${m}:${s.toString().padStart(2,'0')}`;
-
-  recordings.push({ url, label, timeStr });
+  const timeStr = `${Math.floor(dur/60)}:${(dur%60).toString().padStart(2,'0')}`;
+  recordings.push({ url, blob, label: `テイク ${recCount}`, timeStr, dur });
   renderRecordings();
 
-  // WPM hint
   const charLen = input.value.trim().length;
   if (charLen > 0 && dur > 0) {
-    const wpm = Math.round((charLen / dur) * 60);
-    document.getElementById('speed-note').textContent = `最新テイク: ${wpm} 文字/分`;
+    document.getElementById('speed-note').textContent = `最新テイク: ${Math.round((charLen/dur)*60)} 文字/分`;
   }
 }
 
@@ -592,13 +590,21 @@ function renderRecordings() {
   recordings.forEach((r, i) => {
     const div = document.createElement('div');
     div.className = 'recording-item';
+    div.id = `rec-item-${i}`;
     div.innerHTML = `
-      <span class="rec-num">${i+1}</span>
-      <div style="flex:1; display:flex; flex-direction:column; gap:0.2rem;">
-        <div style="font-size:0.8rem; font-weight:500;">${r.label} <span style="color:var(--muted); font-weight:400;">${r.timeStr}</span></div>
-        <audio controls src="${r.url}" style="width:100%; height:28px;"></audio>
+      <div class="recording-item-top">
+        <span class="rec-num">${i+1}</span>
+        <span class="rec-label">${r.label}</span>
+        <span class="rec-dur">${r.timeStr}</span>
+        <button class="del-btn" onclick="deleteRecording(${i})">✕</button>
       </div>
-      <button class="del-btn" onclick="deleteRecording(${i})">✕</button>
+      <audio controls src="${r.url}" style="width:100%; height:28px; margin-bottom:0.4rem;"></audio>
+      <div class="rec-actions">
+        <button class="btn btn-green btn-small" onclick="analyzeRecording(${i})" id="analyze-btn-${i}">
+          🔍 文字起こし・比較
+        </button>
+      </div>
+      <div class="analysis-box" id="analysis-${i}"></div>
     `;
     list.appendChild(div);
   });
@@ -620,13 +626,107 @@ function clearAll() {
   document.getElementById('speed-note').textContent = '';
 }
 
+// ─── Gemini Analysis ───
+async function analyzeRecording(i) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    alert('Gemini APIキーをヘッダーに入力してください。');
+    return;
+  }
+
+  const script = input.value.trim();
+  if (!script) {
+    alert('原稿が入力されていません。');
+    return;
+  }
+
+  const box = document.getElementById(`analysis-${i}`);
+  const btn = document.getElementById(`analyze-btn-${i}`);
+  box.className = 'analysis-box visible loading';
+  box.textContent = '🔄 Geminiで分析中…';
+  btn.disabled = true;
+
+  try {
+    const blob = recordings[i].blob;
+    const base64 = await blobToBase64(blob);
+    const mimeType = blob.type || 'audio/webm';
+
+    const prompt = `あなたはスピーチコーチです。以下の音声を文字起こしし、【原稿】と照らし合わせてフィードバックしてください。
+
+【原稿】
+${script}
+
+以下の形式で日本語で回答してください：
+
+## 文字起こし結果
+（音声の内容をそのまま書き起こす）
+
+## 原稿との比較
+- ✅ 正しく読めた部分
+- ❌ 言い間違い・言い直し・抜け・追加があった部分（原稿→実際に言った内容の形式で）
+
+## 総評
+（全体的な感想・改善ポイントを2〜3文で）`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mimeType, data: base64 } },
+              { text: prompt }
+            ]
+          }]
+        })
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '結果を取得できませんでした。';
+
+    box.className = 'analysis-box visible';
+    box.innerHTML = renderMarkdown(text);
+  } catch(e) {
+    box.className = 'analysis-box visible';
+    box.innerHTML = `<span style="color:var(--accent)">❌ エラー: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function renderMarkdown(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/^## (.+)$/gm, '<strong style="display:block;margin-top:0.7rem;margin-bottom:0.2rem;font-size:0.82rem;color:var(--ink);">$1</strong>')
+    .replace(/^- ✅(.+)$/gm, '<div class="diff-ok">✅$1</div>')
+    .replace(/^- ❌(.+)$/gm, '<div class="diff-ng">❌$1</div>')
+    .replace(/^- (.+)$/gm, '<div>• $1</div>')
+    .replace(/\n/g, '<br>');
+}
+
 // ─── Waveform ───
 function drawWaveform() {
   const canvas = document.getElementById('waveform');
   const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth * 2;
   canvas.height = canvas.offsetHeight * 2;
-
   const buf = new Uint8Array(analyser.frequencyBinCount);
 
   function draw() {
@@ -650,8 +750,7 @@ function drawWaveform() {
 
 function clearCanvas() {
   const canvas = document.getElementById('waveform');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 </script>
 </body>
